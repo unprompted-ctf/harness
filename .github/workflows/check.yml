@@ -1,0 +1,26 @@
+name: check
+
+on: [push, pull_request]
+
+jobs:
+  frozen-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: pip install -r requirements.txt
+      - name: runner compiles
+        run: python -m py_compile runner.py
+      - name: config is valid and caps are present
+        run: |
+          python - <<'PY'
+          import yaml, re
+          c = yaml.safe_load(open("config.yml"))
+          for k in ("model", "limits", "system_prompt", "tools", "flag_pattern"):
+              assert k in c, f"config.yml is missing {k}"
+          for k in ("max_usd", "max_seconds", "max_turns"):
+              assert k in c["limits"], f"limits.{k} is missing - a run with no cap can spend the event budget"
+          re.compile(c["flag_pattern"])
+          print("config ok:", c["model"], c["limits"])
+          PY
